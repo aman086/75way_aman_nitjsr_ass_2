@@ -1,44 +1,80 @@
-const app = require('express')();
-const http = require('http').Server(app);
-const cors = require('cors');
+// app.js or index.js
+import express from 'express';
+import { connectDB } from './db.js';
+import mongoose from 'mongoose';
+import bodyParser from 'body-parser';
+import user from './models/user.js';
 
-app.use(cors());
+const app = express();
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+import cors from 'cors'
+ 
+const corsOptions = {
+  origin: 'http://localhost:5173/'
+  // optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+};
 
-// app.use(cors(corsOptions))
-const mongoose = require('mongoose');
-mongoose.connect("mongodb+srv://aman:Aman2122@cluster0.6j5f5pb.mongodb.net/?retryWrites=true&w=majority");
+// Use cors middleware with options
+app.use(cors(corsOptions));
+// app.use(corsOptions);
 
-const user = require('./userModel')
 
-async function insert(){
-    await user.create({
-        name: "Aman",
-        password: 1234
+const PORT = 3000;
+
+connectDB();
+
+app.post('/api/signup', async (req, res) => {
+  console.log(req.body);
+
+  const { name, password } = req.body;
+
+  let userData = new user({
+    name,
+    password
+  });
+
+  await userData
+    .save()
+    .then(() => {
+      console.log(userData);  // Corrected from 'user' to 'userData'
+      res.send('User created successfully');
+    })
+    .catch((err) => {
+      console.log('Error: ', err);
+      res.status(500).send('Internal Server Error');
     });
-}
+});
 
-insert();
+app.post('/api/login', async (req, res) => {
+  const { name, password } = req.body;
 
-app.get('/' , (req,res)=>{
-    res.send("Home")
-})
+  try {
+    // Check if the user exists in the database (assuming 'user' is your mongoose model)
+    const existingUser = await user.findOne({ name: name, password });
 
-app.get('/signup' , (req,res)=>{
-    res.send("Signup")
-})
-
-app.post("/signup" , async (req,res)=>{
-    const data = {
-       name : req.body.username,
-       password : req.body.password
+    if (existingUser) {
+      // Successful login
+      res.status(200).json({ message: 'Login successful', user: existingUser });
+    } else {
+      // Incorrect username or password
+      res.status(401).json({ message: 'Invalid credentials' });
     }
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
-    await user.insertMany([data])
 
-    res.render("Home")
-})
+app.get('/', (req, res) => {
+  res.send('Home');
+});
 
+app.get('/name', (req, res) => {
+  res.send('Name');
+});
 
-http.listen(3000 , ()=>{
-    console.log("Server is running")
-})
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
